@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Down With Disease — Keyboard Hero</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -23,6 +23,9 @@
     background:var(--bg-deep);
     font-family:'Inter',sans-serif;
     color:var(--ink);
+    touch-action:manipulation;
+    -webkit-user-select:none;user-select:none;
+    -webkit-touch-callout:none;
   }
   #bgblobs{
     position:fixed;inset:0;z-index:0;
@@ -40,7 +43,7 @@
   #app{position:relative;z-index:1;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;}
 
   .screen{
-    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;
     text-align:center;padding:24px;
   }
   .hidden{display:none !important;}
@@ -106,7 +109,7 @@
     opacity:0;z-index:3;pointer-events:none;
   }
 
-  canvas#game{position:relative;z-index:1;display:block;}
+  canvas#game{position:relative;z-index:0;display:block;touch-action:none;}
 
   .resultCard{
     background:rgba(18,23,43,0.75);
@@ -149,7 +152,7 @@
 
   <div class="screen" id="startScreen">
     <h1 class="title">Down With Disease<br>Keyboard Hero</h1>
-    <p class="subtitle">One song. Four lanes. A synth-jam built in your browser — no downloads, no copyrighted audio, just an original funk-jam charted in the spirit of the tune. Built to send straight to your favorite Fish Head.</p>
+    <p class="subtitle">One song. Four lanes. A synth-jam built in your browser — no downloads, no copyrighted audio, just an original funk-jam charted in the spirit of the tune. Works on desktop keyboard or mobile taps. Built to send straight to your favorite Fish Head.</p>
     <div class="keylegend">
       <div class="keychip"><div class="keycap" style="background:var(--lane-d)">D</div><small>low end</small></div>
       <div class="keychip"><div class="keycap" style="background:var(--lane-f)">F</div><small>backbeat</small></div>
@@ -177,7 +180,7 @@
     </div>
   </div>
 
-  <footer class="hint hidden" id="playHint">Hit D · F · J · K as the notes cross the line — this is best played on a laptop or desktop keyboard.</footer>
+  <footer class="hint hidden" id="playHint">Hit D · F · J · K as the notes cross the line — on a phone or tablet, just tap the matching lane instead.</footer>
 </div>
 
 <script>
@@ -509,6 +512,48 @@
   let pressed = [false,false,false,false];
   window.addEventListener('keydown', keyDown);
   window.addEventListener('keyup', keyUp);
+
+  // ---------- TOUCH INPUT (mobile) ----------
+  // Maps each active finger (by touch identifier) to the lane it landed on,
+  // so multiple fingers can hold/hit different lanes at once and we release
+  // the right lane when that specific finger lifts.
+  const activeTouches = {};
+
+  function laneFromX(x){
+    for(let i=0;i<LANES.length;i++){
+      const lx = laneX(i), lw = laneW();
+      if(x >= lx && x <= lx+lw) return i;
+    }
+    return -1;
+  }
+
+  function handleTouchStart(e){
+    if(!running) return;
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    for(const t of e.changedTouches){
+      const x = t.clientX - rect.left;
+      const lane = laneFromX(x);
+      if(lane !== -1){
+        activeTouches[t.identifier] = lane;
+        pressed[lane] = true;
+        judgeHit(lane);
+      }
+    }
+  }
+  function handleTouchEnd(e){
+    e.preventDefault();
+    for(const t of e.changedTouches){
+      const lane = activeTouches[t.identifier];
+      if(lane !== undefined){
+        pressed[lane] = false;
+        delete activeTouches[t.identifier];
+      }
+    }
+  }
+  canvas.addEventListener('touchstart', handleTouchStart, {passive:false});
+  canvas.addEventListener('touchend', handleTouchEnd, {passive:false});
+  canvas.addEventListener('touchcancel', handleTouchEnd, {passive:false});
 
   function drawFrame(){
     if(!running) return;
