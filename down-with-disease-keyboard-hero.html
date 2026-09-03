@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Down With Disease — Keyboard Hero</title>
+<title>Down With Disease — Keyboard Hero (Novice)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -63,23 +63,28 @@
     font-size:1.05rem;
     max-width:480px;
   }
+  .badge{
+    display:inline-block;margin-top:16px;padding:6px 16px;border-radius:999px;
+    background:rgba(124,232,107,0.15);border:1px solid rgba(124,232,107,0.4);
+    color:var(--lane-k);font-family:'Fredoka',sans-serif;font-size:0.85rem;font-weight:600;
+    letter-spacing:0.3px;
+  }
   .keylegend{
-    display:flex;gap:18px;margin-top:34px;flex-wrap:wrap;justify-content:center;
+    display:flex;gap:18px;margin-top:30px;flex-wrap:wrap;justify-content:center;
   }
   .keychip{
     display:flex;flex-direction:column;align-items:center;gap:8px;
   }
   .keycap{
-    width:52px;height:52px;border-radius:14px;
+    width:56px;height:56px;border-radius:16px;
     display:flex;align-items:center;justify-content:center;
-    font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.3rem;
+    font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.4rem;
     color:#0c0e1a;
     box-shadow:0 4px 0 rgba(0,0,0,0.35);
   }
-  .keychip small{color:var(--ink-dim);font-size:0.72rem;}
 
   button.primary{
-    margin-top:38px;
+    margin-top:34px;
     font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.2rem;
     padding:14px 38px;border-radius:999px;border:none;cursor:pointer;
     background:linear-gradient(90deg, var(--lane-d), var(--lane-k));
@@ -130,11 +135,19 @@
   footer.hint{
     position:absolute;bottom:14px;left:0;right:0;text-align:center;color:var(--ink-dim);font-size:0.78rem;z-index:2;
   }
+  #audioWarning{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(255,92,122,0.15);border:1px solid rgba(255,92,122,0.5);
+    color:#ffb3c1;padding:16px 22px;border-radius:14px;max-width:420px;
+    font-size:0.9rem;z-index:5;text-align:center;
+  }
 </style>
 </head>
 <body>
 <div id="bgblobs"></div>
 <div id="app">
+
+  <audio id="track" src="down-with-disease.mp3" preload="auto"></audio>
 
   <div id="hud" class="hidden">
     <div>
@@ -152,12 +165,13 @@
 
   <div class="screen" id="startScreen">
     <h1 class="title">Down With Disease<br>Keyboard Hero</h1>
-    <p class="subtitle">One song. Four lanes. A synth-jam built in your browser — no downloads, no copyrighted audio, just an original funk-jam charted in the spirit of the tune. Works on desktop keyboard or mobile taps. Built to send straight to your favorite Fish Head.</p>
+    <p class="subtitle">Playing the real track this time — notes are charted to the actual beat of the recording. Rotate through D, F, J, K in order as they fall. Works with a keyboard or with taps on mobile.</p>
+    <div class="badge">Novice difficulty · relaxed timing</div>
     <div class="keylegend">
-      <div class="keychip"><div class="keycap" style="background:var(--lane-d)">D</div><small>low end</small></div>
-      <div class="keychip"><div class="keycap" style="background:var(--lane-f)">F</div><small>backbeat</small></div>
-      <div class="keychip"><div class="keycap" style="background:var(--lane-j)">J</div><small>chord stab</small></div>
-      <div class="keychip"><div class="keycap" style="background:var(--lane-k)">K</div><small>lead line</small></div>
+      <div class="keychip"><div class="keycap" style="background:var(--lane-d)">D</div></div>
+      <div class="keychip"><div class="keycap" style="background:var(--lane-f)">F</div></div>
+      <div class="keychip"><div class="keycap" style="background:var(--lane-j)">J</div></div>
+      <div class="keychip"><div class="keycap" style="background:var(--lane-k)">K</div></div>
     </div>
     <button class="primary" id="startBtn">Start the jam</button>
   </div>
@@ -187,12 +201,11 @@
 (function(){
   "use strict";
 
-  // ---------- CONFIG ----------
-  const BPM = 91;
-  const SEC_PER_STEP = (60 / BPM) / 4; // 16th note
-  const LEAD_TIME = 2.0; // seconds a note takes to fall from spawn to hit line
-  const HIT_WINDOW_GOOD = 0.16;
-  const HIT_WINDOW_PERFECT = 0.075;
+  // ---------- CONFIG (Novice) ----------
+  const SONG_DURATION = 247.733;   // seconds — actual length of the uploaded track
+  const LEAD_TIME = 2.6;           // longer fall time = more reaction time
+  const HIT_WINDOW_GOOD = 0.24;    // wide, forgiving timing window
+  const HIT_WINDOW_PERFECT = 0.11;
   const LANES = [
     { key:'d', code:'KeyD', color:'#4dd9e8', label:'D' },
     { key:'f', code:'KeyF', color:'#e84dbe', label:'F' },
@@ -200,232 +213,38 @@
     { key:'k', code:'KeyK', color:'#7ce86b', label:'K' }
   ];
 
-  // ---------- BAR PATTERNS (16 steps each, 0/1) ----------
-  // instruments: kick, snare, chord, bass, hat, lead
-  function bar(pattern){
-    const z = new Array(16).fill(0);
-    pattern.forEach(i => z[i]=1);
-    return z;
-  }
-  const BARS = {
-    intro: {
-      kick: bar([]),
-      snare: bar([]),
-      chord: bar([0]),
-      bass: bar([0,8]),
-      hat: bar([0,4,8,12]),
-      lead: bar([])
-    },
-    riff: {
-      kick: bar([0,3,8,11]),
-      snare: bar([4,12]),
-      chord: bar([0,6,10,14]),
-      bass: bar([0,3,8,11]),
-      hat: bar([0,2,4,6,8,10,12,14]),
-      lead: bar([])
-    },
-    build: {
-      kick: bar([0,3,7,8,11,14]),
-      snare: bar([4,12]),
-      chord: bar([0,6,10]),
-      bass: bar([0,3,7,8,11,14]),
-      hat: bar([0,2,4,6,8,10,12,14]),
-      lead: bar([2,10])
-    },
-    jam: {
-      kick: bar([0,3,6,8,11,13]),
-      snare: bar([4,9,12]),
-      chord: bar([0,3,6,10,13]),
-      bass: bar([0,3,6,8,11,13]),
-      hat: bar([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]),
-      lead: bar([1,5,9,14])
-    },
-    breakdown: {
-      kick: bar([0]),
-      snare: bar([8]),
-      chord: bar([0,8]),
-      bass: bar([0,8]),
-      hat: bar([0,4,8,12]),
-      lead: bar([2,6,10,14])
-    }
-  };
+  // ---------- NOTE CHART ----------
+  // Generated from real beat-detection on the uploaded track (every other
+  // detected beat, rotating lanes D→F→J→K), so notes land on the music.
+  // Each entry: [timeInSeconds, laneIndex]
+  const RAW_CHART = [[5.875,0],[6.803,1],[7.755,2],[8.638,3],[9.567,0],[10.542,1],[11.54,2],[12.539,3],[13.56,0],[14.489,1],[15.488,2],[16.579,3],[17.554,0],[18.53,1],[19.505,2],[20.48,3],[21.455,0],[22.43,1],[23.406,2],[24.288,3],[25.287,0],[26.262,1],[27.26,2],[28.328,3],[29.304,0],[30.279,1],[31.277,2],[32.276,3],[33.228,0],[34.203,1],[35.178,2],[36.153,3],[37.129,0],[38.081,1],[39.079,2],[40.054,3],[41.03,0],[42.005,1],[42.98,2],[43.979,3],[44.954,0],[45.929,1],[46.904,2],[47.903,3],[48.878,0],[49.853,1],[50.828,2],[51.804,3],[52.779,0],[53.754,1],[54.729,2],[55.705,3],[56.68,0],[57.655,1],[58.654,2],[59.606,3],[60.581,0],[61.556,1],[62.555,2],[63.553,3],[64.551,0],[65.527,1],[66.502,2],[67.477,3],[68.452,0],[69.428,1],[70.403,2],[71.401,3],[72.377,0],[73.352,1],[74.327,2],[75.302,3],[76.278,0],[77.253,1],[78.228,2],[79.203,3],[80.179,0],[81.154,1],[82.129,2],[83.104,3],[84.079,0],[85.078,1],[86.053,2],[87.028,3],[88.004,0],[88.979,1],[89.977,2],[90.929,3],[91.905,0],[92.88,1],[93.855,2],[94.877,3],[95.852,0],[96.827,1],[97.802,2],[98.778,3],[99.753,0],[100.728,1],[101.727,2],[102.702,3],[103.654,0],[104.629,1],[105.628,2],[106.58,3],[107.578,0],[108.553,1],[109.552,2],[110.527,3],[111.525,0],[112.501,1],[113.476,2],[114.451,3],[115.426,0],[116.402,1],[117.354,2],[118.329,3],[119.327,0],[120.303,1],[121.278,2],[122.253,3],[123.228,0],[124.204,1],[125.179,2],[126.177,3],[127.176,0],[128.151,1],[129.126,2],[130.125,3],[131.077,0],[132.075,1],[133.05,2],[134.026,3],[135.001,0],[135.976,1],[136.951,2],[137.927,3],[138.925,0],[139.9,1],[140.875,2],[141.827,3],[142.826,0],[143.801,1],[144.776,2],[145.752,3],[146.75,0],[147.725,1],[148.701,2],[149.676,3],[150.651,0],[151.626,1],[152.625,2],[153.577,3],[154.552,0],[155.527,1],[156.502,2],[157.501,3],[158.499,0],[159.475,1],[160.45,2],[161.425,3],[162.4,0],[163.399,1],[164.374,2],[165.326,3],[166.325,0],[167.184,1],[168.159,2],[169.204,3],[170.179,0],[171.154,1],[172.199,2],[173.174,3],[174.15,0],[175.125,1],[176.123,2],[177.075,3],[178.074,0],[179.049,1],[180.024,2],[181.0,3],[181.998,0],[182.973,1],[183.948,2],[184.924,3],[185.922,0],[186.874,1],[187.849,2],[188.801,3],[189.8,0],[190.775,1],[191.75,2],[192.726,3],[193.701,0],[194.653,1],[195.628,2],[196.65,3],[197.648,0],[198.623,1],[199.599,2],[200.574,3],[201.549,0],[202.524,1],[203.5,2],[204.475,3],[205.473,0],[206.449,1],[207.424,2],[208.399,3],[209.374,0],[210.35,1],[211.348,2],[212.323,3],[213.299,0],[214.274,1],[215.249,2],[216.224,3],[217.199,0],[218.198,1],[219.173,2],[220.148,3],[221.124,0],[222.099,1],[223.074,2],[224.073,3],[225.048,0],[226.023,1],[226.998,2],[227.997,3],[228.972,0],[229.97,1],[230.946,2],[231.921,3],[232.873,0],[233.871,1],[234.847,2],[235.822,3],[236.797,0],[237.772,1],[238.748,2],[239.723,3],[240.721,0],[241.697,1],[242.718,2],[243.693,3],[244.669,0]];
 
-  // Song arrangement: sequence of bar-types
-  const ARRANGEMENT = [
-    'intro','intro',
-    'riff','riff','riff','riff',
-    'build','riff','build','riff',
-    'jam','jam','breakdown','jam',
-    'riff','riff','build','jam',
-    'jam','jam','jam','breakdown',
-    'riff','riff','build','build',
-    'jam','jam','jam','jam',
-    'breakdown','breakdown'
-  ];
-
-  // Root notes (Hz) for a minor-funk vamp cycling every 4 bars: i - bVII - v - iv (E minor flavored)
-  const ROOTS = [82.41, 73.42, 61.74, 65.41]; // E2, D2, B1, C2 approx funk vamp
-  function rootForBar(barIndex){ return ROOTS[barIndex % ROOTS.length]; }
-
-  // ---------- BUILD EVENT TIMELINE ----------
-  let audioEvents = []; // {t, type, freq, dur, vel}
-  let chartNotes = [];  // {t, lane, hit:false, judged:false, result:null}
-
-  function buildSong(){
-    audioEvents = [];
-    chartNotes = [];
-    let t = 0;
-    ARRANGEMENT.forEach((barType, barIdx) => {
-      const p = BARS[barType];
-      const root = rootForBar(barIdx);
-      for(let step=0; step<16; step++){
-        const stepTime = t + step*SEC_PER_STEP;
-        if(p.kick[step]){
-          audioEvents.push({t:stepTime, type:'kick'});
-          chartNotes.push({t:stepTime, lane:0});
-        }
-        if(p.snare[step]){
-          audioEvents.push({t:stepTime, type:'snare'});
-          chartNotes.push({t:stepTime, lane:1});
-        }
-        if(p.chord[step]){
-          audioEvents.push({t:stepTime, type:'chord', freq:root*2});
-          chartNotes.push({t:stepTime, lane:2});
-        }
-        if(p.bass[step]){
-          audioEvents.push({t:stepTime, type:'bass', freq:root});
-        }
-        if(p.hat[step]){
-          audioEvents.push({t:stepTime, type:'hat'});
-        }
-        if(p.lead[step]){
-          const scale = [0,3,5,7,10,12];
-          const semis = scale[Math.floor(Math.random()*scale.length)];
-          const freq = root*4*Math.pow(2, semis/12);
-          audioEvents.push({t:stepTime, type:'lead', freq});
-          chartNotes.push({t:stepTime, lane:3});
-        }
-      }
-      t += 16*SEC_PER_STEP;
-    });
-    // final big hit
-    audioEvents.push({t:t+0.1, type:'chord', freq:ROOTS[0]*2, big:true});
-    audioEvents.push({t:t+0.1, type:'bass', freq:ROOTS[0]/2, big:true});
-    return t + 2.0; // total song length incl tail
+  let chartNotes = [];
+  function buildChart(){
+    chartNotes = RAW_CHART.map(([t,lane]) => ({t, lane, judged:false, missed:false}));
   }
 
-  // ---------- AUDIO ENGINE ----------
-  let actx = null, master = null;
-  function initAudio(){
-    actx = new (window.AudioContext || window.webkitAudioContext)();
-    master = actx.createGain();
-    master.gain.value = 0.9;
-    const comp = actx.createDynamicsCompressor();
-    master.connect(comp);
-    comp.connect(actx.destination);
+  // ---------- TINY HIT-FEEDBACK SFX (separate from the track itself) ----------
+  let sfxCtx = null;
+  function initSfx(){
+    sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-
-  function playKick(time){
-    const o = actx.createOscillator();
-    const g = actx.createGain();
+  function blip(freq, vol, dur){
+    if(!sfxCtx) return;
+    const o = sfxCtx.createOscillator();
+    const g = sfxCtx.createGain();
     o.type = 'sine';
-    o.frequency.setValueAtTime(150, time);
-    o.frequency.exponentialRampToValueAtTime(45, time+0.12);
-    g.gain.setValueAtTime(0.9, time);
-    g.gain.exponentialRampToValueAtTime(0.001, time+0.22);
-    o.connect(g); g.connect(master);
-    o.start(time); o.stop(time+0.25);
-  }
-  function noiseBuffer(){
-    const bufferSize = actx.sampleRate * 0.3;
-    const buf = actx.createBuffer(1, bufferSize, actx.sampleRate);
-    const data = buf.getChannelData(0);
-    for(let i=0;i<bufferSize;i++) data[i] = Math.random()*2-1;
-    return buf;
-  }
-  let sharedNoise = null;
-  function playSnare(time){
-    if(!sharedNoise) sharedNoise = noiseBuffer();
-    const src = actx.createBufferSource();
-    src.buffer = sharedNoise;
-    const bp = actx.createBiquadFilter();
-    bp.type='bandpass'; bp.frequency.value=1800; bp.Q.value=0.7;
-    const g = actx.createGain();
-    g.gain.setValueAtTime(0.55, time);
-    g.gain.exponentialRampToValueAtTime(0.001, time+0.15);
-    src.connect(bp); bp.connect(g); g.connect(master);
-    src.start(time); src.stop(time+0.16);
-  }
-  function playHat(time){
-    if(!sharedNoise) sharedNoise = noiseBuffer();
-    const src = actx.createBufferSource();
-    src.buffer = sharedNoise;
-    const hp = actx.createBiquadFilter();
-    hp.type='highpass'; hp.frequency.value=7000;
-    const g = actx.createGain();
-    g.gain.setValueAtTime(0.16, time);
-    g.gain.exponentialRampToValueAtTime(0.001, time+0.05);
-    src.connect(hp); hp.connect(g); g.connect(master);
-    src.start(time); src.stop(time+0.06);
-  }
-  function playChord(time, freq, big){
-    const detune = [0, 4, 7]; // major-ish stab voicing over the root (funk major-on-minor color)
-    detune.forEach(semi=>{
-      const o = actx.createOscillator();
-      const g = actx.createGain();
-      o.type='sawtooth';
-      o.frequency.value = freq*Math.pow(2, semi/12);
-      const vol = big?0.22:0.13;
-      g.gain.setValueAtTime(vol, time);
-      g.gain.exponentialRampToValueAtTime(0.001, time+(big?0.9:0.18));
-      const filt = actx.createBiquadFilter();
-      filt.type='lowpass'; filt.frequency.value = 2200;
-      o.connect(filt); filt.connect(g); g.connect(master);
-      o.start(time); o.stop(time+(big?1:0.2));
-    });
-  }
-  function playBass(time, freq, big){
-    const o = actx.createOscillator();
-    const g = actx.createGain();
-    o.type='triangle';
     o.frequency.value = freq;
-    g.gain.setValueAtTime(big?0.5:0.34, time);
-    g.gain.exponentialRampToValueAtTime(0.001, time+(big?1.1:0.22));
-    o.connect(g); g.connect(master);
-    o.start(time); o.stop(time+(big?1.2:0.24));
-  }
-  function playLead(time, freq){
-    const o = actx.createOscillator();
-    const g = actx.createGain();
-    o.type='square';
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(0.16, time);
-    g.gain.exponentialRampToValueAtTime(0.001, time+0.3);
-    const filt = actx.createBiquadFilter();
-    filt.type='lowpass'; filt.frequency.value=3200;
-    o.connect(filt); filt.connect(g); g.connect(master);
-    o.start(time); o.stop(time+0.32);
-  }
-
-  function scheduleAllAudio(startTime){
-    audioEvents.forEach(ev=>{
-      const time = startTime + ev.t;
-      switch(ev.type){
-        case 'kick': playKick(time); break;
-        case 'snare': playSnare(time); break;
-        case 'hat': playHat(time); break;
-        case 'chord': playChord(time, ev.freq, ev.big); break;
-        case 'bass': playBass(time, ev.freq, ev.big); break;
-        case 'lead': playLead(time, ev.freq); break;
-      }
-    });
+    g.gain.setValueAtTime(vol, sfxCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, sfxCtx.currentTime+dur);
+    o.connect(g); g.connect(sfxCtx.destination);
+    o.start(); o.stop(sfxCtx.currentTime+dur+0.02);
   }
 
   // ---------- GAME STATE ----------
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  let songLength = 0;
-  let startTime = 0;
+  const track = document.getElementById('track');
   let running = false;
   let score = 0, combo = 0, maxCombo = 0, hits = 0, misses = 0, totalNotes = 0;
   let hitLineY = 0;
@@ -464,7 +283,7 @@
   }
 
   function judgeHit(lane){
-    const now = actx.currentTime - startTime;
+    const now = track.currentTime;
     let best = null, bestDelta = Infinity;
     for(const n of chartNotes){
       if(n.judged || n.lane !== lane) continue;
@@ -479,11 +298,13 @@
         const mult = 1 + Math.floor(Math.min(combo,40)/10);
         score += 100*mult;
         showJudge('PERFECT', LANES[lane].color);
+        blip(880, 0.12, 0.12);
       } else {
         combo++; maxCombo = Math.max(maxCombo, combo);
         const mult = 1 + Math.floor(Math.min(combo,40)/10);
         score += 50*mult;
         showJudge('good', LANES[lane].color);
+        blip(660, 0.1, 0.1);
       }
     } else {
       combo = 0;
@@ -514,11 +335,7 @@
   window.addEventListener('keyup', keyUp);
 
   // ---------- TOUCH INPUT (mobile) ----------
-  // Maps each active finger (by touch identifier) to the lane it landed on,
-  // so multiple fingers can hold/hit different lanes at once and we release
-  // the right lane when that specific finger lifts.
   const activeTouches = {};
-
   function laneFromX(x){
     for(let i=0;i<LANES.length;i++){
       const lx = laneX(i), lw = laneW();
@@ -526,7 +343,6 @@
     }
     return -1;
   }
-
   function handleTouchStart(e){
     if(!running) return;
     e.preventDefault();
@@ -555,13 +371,22 @@
   canvas.addEventListener('touchend', handleTouchEnd, {passive:false});
   canvas.addEventListener('touchcancel', handleTouchEnd, {passive:false});
 
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
   function drawFrame(){
     if(!running) return;
-    const now = actx.currentTime - startTime;
+    const now = track.currentTime;
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // lanes
     LANES.forEach((lane,i)=>{
       const x = laneX(i);
       const w = laneW();
@@ -571,24 +396,21 @@
       ctx.fillStyle = grad;
       ctx.fillRect(x,0,w,canvas.height);
 
-      // hit line
       ctx.fillStyle = pressed[i]? lane.color : lane.color+'88';
       ctx.fillRect(x, hitLineY, w, 6);
 
-      // key cap
       ctx.save();
       ctx.translate(x+w/2, hitLineY+42);
       ctx.fillStyle = pressed[i]? '#ffffff' : lane.color;
-      roundRect(ctx, -26,-26,52,52,14);
+      roundRect(ctx, -28,-28,56,56,16);
       ctx.fill();
       ctx.fillStyle = '#0c0e1a';
-      ctx.font = "600 22px Fredoka, sans-serif";
+      ctx.font = "600 24px Fredoka, sans-serif";
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(lane.label, 0, 2);
       ctx.restore();
     });
 
-    // notes
     const spawnY = -40;
     chartNotes.forEach(n=>{
       const dt = n.t - now;
@@ -596,7 +418,7 @@
         if(dt < -0.4) return;
       }
       if(dt > LEAD_TIME+0.1) return;
-      if(dt < -0.35 && !n.judged){
+      if(dt < -0.4 && !n.judged){
         n.judged = true; n.missed = true;
         misses++; combo = 0; updateHud();
       }
@@ -617,23 +439,13 @@
       ctx.restore();
     });
 
-    document.getElementById('progressVal').textContent = formatTime(now)+' / '+formatTime(songLength);
+    document.getElementById('progressVal').textContent = formatTime(now)+' / '+formatTime(SONG_DURATION);
 
-    if(now >= songLength){
+    if(now >= SONG_DURATION || track.ended){
       endGame();
       return;
     }
     requestAnimationFrame(drawFrame);
-  }
-
-  function roundRect(ctx,x,y,w,h,r){
-    ctx.beginPath();
-    ctx.moveTo(x+r,y);
-    ctx.arcTo(x+w,y,x+w,y+h,r);
-    ctx.arcTo(x+w,y+h,x,y+h,r);
-    ctx.arcTo(x,y+h,x,y,r);
-    ctx.arcTo(x,y,x+w,y,r);
-    ctx.closePath();
   }
 
   function startGame(){
@@ -641,23 +453,35 @@
     document.getElementById('endScreen').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('playHint').classList.remove('hidden');
+    const warn = document.getElementById('audioWarning');
+    if(warn) warn.remove();
 
-    if(!actx) initAudio();
-    if(actx.state==='suspended') actx.resume();
+    if(!sfxCtx) initSfx();
+    if(sfxCtx.state==='suspended') sfxCtx.resume();
 
-    songLength = buildSong();
+    buildChart();
     totalNotes = chartNotes.length;
     score=0; combo=0; maxCombo=0; hits=0; misses=0;
     updateHud();
 
-    startTime = actx.currentTime + 0.5;
-    scheduleAllAudio(startTime);
+    track.currentTime = 0;
+    const playPromise = track.play();
+    if(playPromise && playPromise.catch){
+      playPromise.catch(err=>{
+        const d = document.createElement('div');
+        d.id = 'audioWarning';
+        d.textContent = "Couldn't play the audio file — make sure down-with-disease.mp3 is in the same folder as this HTML file, then reload.";
+        document.getElementById('app').appendChild(d);
+      });
+    }
+
     running = true;
     requestAnimationFrame(drawFrame);
   }
 
   function endGame(){
     running = false;
+    track.pause();
     document.getElementById('hud').classList.add('hidden');
     document.getElementById('playHint').classList.add('hidden');
     const acc = totalNotes? Math.round((hits/totalNotes)*100) : 0;
@@ -675,7 +499,7 @@
     document.getElementById('rankFlavor').textContent = flavor;
 
     document.getElementById('shareText').value =
-      "I built a keyboard rhythm game for \"Down With Disease\" with AI — no downloads, just an original synth jam charted for D/F/J/K. Scored "+score+" ("+acc+"% accuracy, rank: "+rank+"). Your turn, Fish Head.";
+      "I built a keyboard rhythm game synced to the real \"Down With Disease\" recording. Scored "+score+" ("+acc+"% accuracy, rank: "+rank+") on Novice. Your turn, Fish Head.";
 
     document.getElementById('endScreen').classList.remove('hidden');
   }
