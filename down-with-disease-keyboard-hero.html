@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Down With Disease — Keyboard Hero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#12172b;
+    --bg-deep2:#1b1440;
+    --lane-d:#4dd9e8;
+    --lane-f:#e84dbe;
+    --lane-j:#ffc94d;
+    --lane-k:#7ce86b;
+    --ink:#f2f0ff;
+    --ink-dim:#a9a4d4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    width:100%;height:100%;overflow:hidden;
+    background:var(--bg-deep);
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+  }
+  #bgblobs{
+    position:fixed;inset:0;z-index:0;
+    background:
+      radial-gradient(60% 50% at 15% 10%, rgba(232,77,190,0.25), transparent 60%),
+      radial-gradient(50% 45% at 90% 15%, rgba(77,217,232,0.22), transparent 60%),
+      radial-gradient(60% 55% at 50% 100%, rgba(124,232,107,0.18), transparent 60%),
+      radial-gradient(80% 80% at 50% 50%, var(--bg-deep2), var(--bg-deep) 70%);
+    animation: driftHue 40s linear infinite;
+  }
+  @keyframes driftHue{
+    0%{filter:hue-rotate(0deg);}
+    100%{filter:hue-rotate(360deg);}
+  }
+  #app{position:relative;z-index:1;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;}
+
+  .screen{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:24px;
+  }
+  .hidden{display:none !important;}
+
+  h1.title{
+    font-family:'Fredoka',sans-serif;
+    font-weight:700;
+    font-size:clamp(2rem, 6vw, 3.4rem);
+    line-height:1.05;
+    background:linear-gradient(90deg, var(--lane-d), var(--lane-f) 40%, var(--lane-j) 70%, var(--lane-k));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    letter-spacing:0.5px;
+  }
+  .subtitle{
+    margin-top:10px;
+    color:var(--ink-dim);
+    font-size:1.05rem;
+    max-width:480px;
+  }
+  .keylegend{
+    display:flex;gap:18px;margin-top:34px;flex-wrap:wrap;justify-content:center;
+  }
+  .keychip{
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+  }
+  .keycap{
+    width:52px;height:52px;border-radius:14px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.3rem;
+    color:#0c0e1a;
+    box-shadow:0 4px 0 rgba(0,0,0,0.35);
+  }
+  .keychip small{color:var(--ink-dim);font-size:0.72rem;}
+
+  button.primary{
+    margin-top:38px;
+    font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.2rem;
+    padding:14px 38px;border-radius:999px;border:none;cursor:pointer;
+    background:linear-gradient(90deg, var(--lane-d), var(--lane-k));
+    color:#0c0e1a;
+    box-shadow:0 6px 0 rgba(0,0,0,0.35);
+    transition:transform .12s ease;
+  }
+  button.primary:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,0.35);}
+  button.secondary{
+    margin-top:16px;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:0.95rem;
+    padding:10px 22px;border-radius:999px;cursor:pointer;
+    background:transparent;color:var(--ink);border:1.5px solid rgba(255,255,255,0.25);
+  }
+
+  #hud{
+    position:absolute;top:0;left:0;right:0;z-index:2;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    padding:18px 26px;pointer-events:none;
+  }
+  #hud .score{font-family:'Fredoka',sans-serif;font-size:1.6rem;font-weight:600;}
+  #hud .combo{font-family:'Fredoka',sans-serif;font-size:1.1rem;color:var(--lane-j);min-height:1.4rem;}
+  #hud .rankTag{font-size:0.85rem;color:var(--ink-dim);}
+  #judge{
+    position:absolute;left:50%;top:28%;transform:translate(-50%,0);
+    font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.6rem;
+    opacity:0;z-index:3;pointer-events:none;
+  }
+
+  canvas#game{position:relative;z-index:1;display:block;}
+
+  .resultCard{
+    background:rgba(18,23,43,0.75);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:24px;padding:36px 44px;backdrop-filter:blur(6px);
+    max-width:520px;
+  }
+  .rankBig{
+    font-family:'Fredoka',sans-serif;font-weight:700;font-size:3rem;
+    margin-top:6px;
+  }
+  .statRow{display:flex;justify-content:space-between;gap:40px;margin-top:22px;font-size:0.95rem;color:var(--ink-dim);}
+  .statRow b{color:var(--ink);font-size:1.1rem;display:block;}
+  textarea#shareText{
+    margin-top:22px;width:100%;min-height:74px;border-radius:12px;border:1px solid rgba(255,255,255,0.18);
+    background:rgba(255,255,255,0.05);color:var(--ink);font-family:'Inter',sans-serif;font-size:0.85rem;padding:10px;resize:none;
+  }
+  footer.hint{
+    position:absolute;bottom:14px;left:0;right:0;text-align:center;color:var(--ink-dim);font-size:0.78rem;z-index:2;
+  }
+</style>
+</head>
+<body>
+<div id="bgblobs"></div>
+<div id="app">
+
+  <div id="hud" class="hidden">
+    <div>
+      <div class="score" id="scoreVal">0</div>
+      <div class="rankTag">SCORE</div>
+    </div>
+    <div style="text-align:right">
+      <div class="combo" id="comboVal"></div>
+      <div class="rankTag" id="progressVal">0:00 / 0:00</div>
+    </div>
+  </div>
+  <div id="judge"></div>
+
+  <canvas id="game"></canvas>
+
+  <div class="screen" id="startScreen">
+    <h1 class="title">Down With Disease<br>Keyboard Hero</h1>
+    <p class="subtitle">One song. Four lanes. A synth-jam built in your browser — no downloads, no copyrighted audio, just an original funk-jam charted in the spirit of the tune. Built to send straight to your favorite Fish Head.</p>
+    <div class="keylegend">
+      <div class="keychip"><div class="keycap" style="background:var(--lane-d)">D</div><small>low end</small></div>
+      <div class="keychip"><div class="keycap" style="background:var(--lane-f)">F</div><small>backbeat</small></div>
+      <div class="keychip"><div class="keycap" style="background:var(--lane-j)">J</div><small>chord stab</small></div>
+      <div class="keychip"><div class="keycap" style="background:var(--lane-k)">K</div><small>lead line</small></div>
+    </div>
+    <button class="primary" id="startBtn">Start the jam</button>
+  </div>
+
+  <div class="screen hidden" id="endScreen">
+    <div class="resultCard">
+      <div class="rankTag">FINAL JAM REPORT</div>
+      <div class="rankBig" id="rankBig">—</div>
+      <div class="subtitle" id="rankFlavor" style="margin-top:6px;"></div>
+      <div class="statRow">
+        <div>SCORE<b id="finalScore">0</b></div>
+        <div>MAX COMBO<b id="finalCombo">0</b></div>
+        <div>ACCURACY<b id="finalAcc">0%</b></div>
+      </div>
+      <textarea id="shareText" readonly></textarea>
+      <div>
+        <button class="secondary" id="copyBtn">Copy invite for the Fish Head</button>
+        <button class="secondary" id="retryBtn">Play again</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="hint hidden" id="playHint">Hit D · F · J · K as the notes cross the line — this is best played on a laptop or desktop keyboard.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- CONFIG ----------
+  const BPM = 91;
+  const SEC_PER_STEP = (60 / BPM) / 4; // 16th note
+  const LEAD_TIME = 2.0; // seconds a note takes to fall from spawn to hit line
+  const HIT_WINDOW_GOOD = 0.16;
+  const HIT_WINDOW_PERFECT = 0.075;
+  const LANES = [
+    { key:'d', code:'KeyD', color:'#4dd9e8', label:'D' },
+    { key:'f', code:'KeyF', color:'#e84dbe', label:'F' },
+    { key:'j', code:'KeyJ', color:'#ffc94d', label:'J' },
+    { key:'k', code:'KeyK', color:'#7ce86b', label:'K' }
+  ];
+
+  // ---------- BAR PATTERNS (16 steps each, 0/1) ----------
+  // instruments: kick, snare, chord, bass, hat, lead
+  function bar(pattern){
+    const z = new Array(16).fill(0);
+    pattern.forEach(i => z[i]=1);
+    return z;
+  }
+  const BARS = {
+    intro: {
+      kick: bar([]),
+      snare: bar([]),
+      chord: bar([0]),
+      bass: bar([0,8]),
+      hat: bar([0,4,8,12]),
+      lead: bar([])
+    },
+    riff: {
+      kick: bar([0,3,8,11]),
+      snare: bar([4,12]),
+      chord: bar([0,6,10,14]),
+      bass: bar([0,3,8,11]),
+      hat: bar([0,2,4,6,8,10,12,14]),
+      lead: bar([])
+    },
+    build: {
+      kick: bar([0,3,7,8,11,14]),
+      snare: bar([4,12]),
+      chord: bar([0,6,10]),
+      bass: bar([0,3,7,8,11,14]),
+      hat: bar([0,2,4,6,8,10,12,14]),
+      lead: bar([2,10])
+    },
+    jam: {
+      kick: bar([0,3,6,8,11,13]),
+      snare: bar([4,9,12]),
+      chord: bar([0,3,6,10,13]),
+      bass: bar([0,3,6,8,11,13]),
+      hat: bar([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]),
+      lead: bar([1,5,9,14])
+    },
+    breakdown: {
+      kick: bar([0]),
+      snare: bar([8]),
+      chord: bar([0,8]),
+      bass: bar([0,8]),
+      hat: bar([0,4,8,12]),
+      lead: bar([2,6,10,14])
+    }
+  };
+
+  // Song arrangement: sequence of bar-types
+  const ARRANGEMENT = [
+    'intro','intro',
+    'riff','riff','riff','riff',
+    'build','riff','build','riff',
+    'jam','jam','breakdown','jam',
+    'riff','riff','build','jam',
+    'jam','jam','jam','breakdown',
+    'riff','riff','build','build',
+    'jam','jam','jam','jam',
+    'breakdown','breakdown'
+  ];
+
+  // Root notes (Hz) for a minor-funk vamp cycling every 4 bars: i - bVII - v - iv (E minor flavored)
+  const ROOTS = [82.41, 73.42, 61.74, 65.41]; // E2, D2, B1, C2 approx funk vamp
+  function rootForBar(barIndex){ return ROOTS[barIndex % ROOTS.length]; }
+
+  // ---------- BUILD EVENT TIMELINE ----------
+  let audioEvents = []; // {t, type, freq, dur, vel}
+  let chartNotes = [];  // {t, lane, hit:false, judged:false, result:null}
+
+  function buildSong(){
+    audioEvents = [];
+    chartNotes = [];
+    let t = 0;
+    ARRANGEMENT.forEach((barType, barIdx) => {
+      const p = BARS[barType];
+      const root = rootForBar(barIdx);
+      for(let step=0; step<16; step++){
+        const stepTime = t + step*SEC_PER_STEP;
+        if(p.kick[step]){
+          audioEvents.push({t:stepTime, type:'kick'});
+          chartNotes.push({t:stepTime, lane:0});
+        }
+        if(p.snare[step]){
+          audioEvents.push({t:stepTime, type:'snare'});
+          chartNotes.push({t:stepTime, lane:1});
+        }
+        if(p.chord[step]){
+          audioEvents.push({t:stepTime, type:'chord', freq:root*2});
+          chartNotes.push({t:stepTime, lane:2});
+        }
+        if(p.bass[step]){
+          audioEvents.push({t:stepTime, type:'bass', freq:root});
+        }
+        if(p.hat[step]){
+          audioEvents.push({t:stepTime, type:'hat'});
+        }
+        if(p.lead[step]){
+          const scale = [0,3,5,7,10,12];
+          const semis = scale[Math.floor(Math.random()*scale.length)];
+          const freq = root*4*Math.pow(2, semis/12);
+          audioEvents.push({t:stepTime, type:'lead', freq});
+          chartNotes.push({t:stepTime, lane:3});
+        }
+      }
+      t += 16*SEC_PER_STEP;
+    });
+    // final big hit
+    audioEvents.push({t:t+0.1, type:'chord', freq:ROOTS[0]*2, big:true});
+    audioEvents.push({t:t+0.1, type:'bass', freq:ROOTS[0]/2, big:true});
+    return t + 2.0; // total song length incl tail
+  }
+
+  // ---------- AUDIO ENGINE ----------
+  let actx = null, master = null;
+  function initAudio(){
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    master = actx.createGain();
+    master.gain.value = 0.9;
+    const comp = actx.createDynamicsCompressor();
+    master.connect(comp);
+    comp.connect(actx.destination);
+  }
+
+  function playKick(time){
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(150, time);
+    o.frequency.exponentialRampToValueAtTime(45, time+0.12);
+    g.gain.setValueAtTime(0.9, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time+0.22);
+    o.connect(g); g.connect(master);
+    o.start(time); o.stop(time+0.25);
+  }
+  function noiseBuffer(){
+    const bufferSize = actx.sampleRate * 0.3;
+    const buf = actx.createBuffer(1, bufferSize, actx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0;i<bufferSize;i++) data[i] = Math.random()*2-1;
+    return buf;
+  }
+  let sharedNoise = null;
+  function playSnare(time){
+    if(!sharedNoise) sharedNoise = noiseBuffer();
+    const src = actx.createBufferSource();
+    src.buffer = sharedNoise;
+    const bp = actx.createBiquadFilter();
+    bp.type='bandpass'; bp.frequency.value=1800; bp.Q.value=0.7;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.55, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time+0.15);
+    src.connect(bp); bp.connect(g); g.connect(master);
+    src.start(time); src.stop(time+0.16);
+  }
+  function playHat(time){
+    if(!sharedNoise) sharedNoise = noiseBuffer();
+    const src = actx.createBufferSource();
+    src.buffer = sharedNoise;
+    const hp = actx.createBiquadFilter();
+    hp.type='highpass'; hp.frequency.value=7000;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.16, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time+0.05);
+    src.connect(hp); hp.connect(g); g.connect(master);
+    src.start(time); src.stop(time+0.06);
+  }
+  function playChord(time, freq, big){
+    const detune = [0, 4, 7]; // major-ish stab voicing over the root (funk major-on-minor color)
+    detune.forEach(semi=>{
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type='sawtooth';
+      o.frequency.value = freq*Math.pow(2, semi/12);
+      const vol = big?0.22:0.13;
+      g.gain.setValueAtTime(vol, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time+(big?0.9:0.18));
+      const filt = actx.createBiquadFilter();
+      filt.type='lowpass'; filt.frequency.value = 2200;
+      o.connect(filt); filt.connect(g); g.connect(master);
+      o.start(time); o.stop(time+(big?1:0.2));
+    });
+  }
+  function playBass(time, freq, big){
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type='triangle';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(big?0.5:0.34, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time+(big?1.1:0.22));
+    o.connect(g); g.connect(master);
+    o.start(time); o.stop(time+(big?1.2:0.24));
+  }
+  function playLead(time, freq){
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type='square';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.16, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time+0.3);
+    const filt = actx.createBiquadFilter();
+    filt.type='lowpass'; filt.frequency.value=3200;
+    o.connect(filt); filt.connect(g); g.connect(master);
+    o.start(time); o.stop(time+0.32);
+  }
+
+  function scheduleAllAudio(startTime){
+    audioEvents.forEach(ev=>{
+      const time = startTime + ev.t;
+      switch(ev.type){
+        case 'kick': playKick(time); break;
+        case 'snare': playSnare(time); break;
+        case 'hat': playHat(time); break;
+        case 'chord': playChord(time, ev.freq, ev.big); break;
+        case 'bass': playBass(time, ev.freq, ev.big); break;
+        case 'lead': playLead(time, ev.freq); break;
+      }
+    });
+  }
+
+  // ---------- GAME STATE ----------
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let songLength = 0;
+  let startTime = 0;
+  let running = false;
+  let score = 0, combo = 0, maxCombo = 0, hits = 0, misses = 0, totalNotes = 0;
+  let hitLineY = 0;
+
+  function resize(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    hitLineY = canvas.height - 130;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function laneX(i){
+    const laneW = Math.min(120, canvas.width/6);
+    const totalW = laneW*LANES.length + 18*(LANES.length-1);
+    const startX = (canvas.width-totalW)/2;
+    return startX + i*(laneW+18);
+  }
+  function laneW(){ return Math.min(120, canvas.width/6); }
+
+  function formatTime(s){
+    s = Math.max(0,s);
+    const m = Math.floor(s/60);
+    const sec = Math.floor(s%60);
+    return m+":"+(sec<10?"0":"")+sec;
+  }
+
+  function showJudge(text, color){
+    const el = document.getElementById('judge');
+    el.textContent = text;
+    el.style.color = color;
+    el.style.opacity = '1';
+    el.style.transform = 'translate(-50%,0) scale(1.15)';
+    clearTimeout(showJudge._t);
+    showJudge._t = setTimeout(()=>{ el.style.opacity='0'; }, 260);
+  }
+
+  function judgeHit(lane){
+    const now = actx.currentTime - startTime;
+    let best = null, bestDelta = Infinity;
+    for(const n of chartNotes){
+      if(n.judged || n.lane !== lane) continue;
+      const delta = Math.abs(n.t - now);
+      if(delta < bestDelta){ bestDelta = delta; best = n; }
+    }
+    if(best && bestDelta <= HIT_WINDOW_GOOD){
+      best.judged = true;
+      hits++;
+      if(bestDelta <= HIT_WINDOW_PERFECT){
+        combo++; maxCombo = Math.max(maxCombo, combo);
+        const mult = 1 + Math.floor(Math.min(combo,40)/10);
+        score += 100*mult;
+        showJudge('PERFECT', LANES[lane].color);
+      } else {
+        combo++; maxCombo = Math.max(maxCombo, combo);
+        const mult = 1 + Math.floor(Math.min(combo,40)/10);
+        score += 50*mult;
+        showJudge('good', LANES[lane].color);
+      }
+    } else {
+      combo = 0;
+      showJudge('miss', '#ff5c7a');
+    }
+    updateHud();
+  }
+
+  function updateHud(){
+    document.getElementById('scoreVal').textContent = score;
+    document.getElementById('comboVal').textContent = combo>1 ? (combo+' combo') : '';
+  }
+
+  function keyDown(e){
+    if(!running) return;
+    const laneIdx = LANES.findIndex(l=>l.code===e.code);
+    if(laneIdx===-1) return;
+    pressed[laneIdx] = true;
+    judgeHit(laneIdx);
+  }
+  function keyUp(e){
+    const laneIdx = LANES.findIndex(l=>l.code===e.code);
+    if(laneIdx===-1) return;
+    pressed[laneIdx] = false;
+  }
+  let pressed = [false,false,false,false];
+  window.addEventListener('keydown', keyDown);
+  window.addEventListener('keyup', keyUp);
+
+  function drawFrame(){
+    if(!running) return;
+    const now = actx.currentTime - startTime;
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // lanes
+    LANES.forEach((lane,i)=>{
+      const x = laneX(i);
+      const w = laneW();
+      const grad = ctx.createLinearGradient(0,0,0,canvas.height);
+      grad.addColorStop(0, lane.color+'11');
+      grad.addColorStop(1, lane.color+'22');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x,0,w,canvas.height);
+
+      // hit line
+      ctx.fillStyle = pressed[i]? lane.color : lane.color+'88';
+      ctx.fillRect(x, hitLineY, w, 6);
+
+      // key cap
+      ctx.save();
+      ctx.translate(x+w/2, hitLineY+42);
+      ctx.fillStyle = pressed[i]? '#ffffff' : lane.color;
+      roundRect(ctx, -26,-26,52,52,14);
+      ctx.fill();
+      ctx.fillStyle = '#0c0e1a';
+      ctx.font = "600 22px Fredoka, sans-serif";
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(lane.label, 0, 2);
+      ctx.restore();
+    });
+
+    // notes
+    const spawnY = -40;
+    chartNotes.forEach(n=>{
+      const dt = n.t - now;
+      if(n.judged){
+        if(dt < -0.4) return;
+      }
+      if(dt > LEAD_TIME+0.1) return;
+      if(dt < -0.35 && !n.judged){
+        n.judged = true; n.missed = true;
+        misses++; combo = 0; updateHud();
+      }
+      const y = hitLineY - (dt/LEAD_TIME)*(hitLineY-spawnY);
+      if(y < -50 || y > canvas.height+50) return;
+      const x = laneX(n.lane);
+      const w = laneW();
+      const lane = LANES[n.lane];
+      ctx.save();
+      if(n.judged && !n.missed){
+        ctx.globalAlpha = Math.max(0, 1-((-dt-0)*3));
+      }
+      ctx.fillStyle = n.missed? '#3a3a4a' : lane.color;
+      ctx.shadowColor = lane.color;
+      ctx.shadowBlur = n.missed? 0 : 14;
+      roundRect(ctx, x+8, y-12, w-16, 24, 10);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    document.getElementById('progressVal').textContent = formatTime(now)+' / '+formatTime(songLength);
+
+    if(now >= songLength){
+      endGame();
+      return;
+    }
+    requestAnimationFrame(drawFrame);
+  }
+
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function startGame(){
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('endScreen').classList.add('hidden');
+    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('playHint').classList.remove('hidden');
+
+    if(!actx) initAudio();
+    if(actx.state==='suspended') actx.resume();
+
+    songLength = buildSong();
+    totalNotes = chartNotes.length;
+    score=0; combo=0; maxCombo=0; hits=0; misses=0;
+    updateHud();
+
+    startTime = actx.currentTime + 0.5;
+    scheduleAllAudio(startTime);
+    running = true;
+    requestAnimationFrame(drawFrame);
+  }
+
+  function endGame(){
+    running = false;
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('playHint').classList.add('hidden');
+    const acc = totalNotes? Math.round((hits/totalNotes)*100) : 0;
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('finalCombo').textContent = maxCombo;
+    document.getElementById('finalAcc').textContent = acc+'%';
+
+    let rank, flavor;
+    if(acc>=95){ rank='TWEEZER-LEVEL'; flavor='Certified Fish Head. You could sit in.'; }
+    else if(acc>=85){ rank='SOLID SETLIST'; flavor='Tight jam. The lot would be proud.'; }
+    else if(acc>=65){ rank='FIRST SET'; flavor='Warmed up — the real jam comes after setbreak.'; }
+    else if(acc>=40){ rank='TUNING ON STAGE'; flavor='Rough start. Give it another spin.'; }
+    else { rank='SOUNDCHECK'; flavor='Everyone bombs soundcheck. Try again.'; }
+    document.getElementById('rankBig').textContent = rank;
+    document.getElementById('rankFlavor').textContent = flavor;
+
+    document.getElementById('shareText').value =
+      "I built a keyboard rhythm game for \"Down With Disease\" with AI — no downloads, just an original synth jam charted for D/F/J/K. Scored "+score+" ("+acc+"% accuracy, rank: "+rank+"). Your turn, Fish Head.";
+
+    document.getElementById('endScreen').classList.remove('hidden');
+  }
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('retryBtn').addEventListener('click', startGame);
+  document.getElementById('copyBtn').addEventListener('click', ()=>{
+    const ta = document.getElementById('shareText');
+    ta.select();
+    document.execCommand('copy');
+    const btn = document.getElementById('copyBtn');
+    const old = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(()=>{btn.textContent = old;}, 1400);
+  });
+
+})();
+</script>
+</body>
+</html>
